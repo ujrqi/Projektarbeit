@@ -1,0 +1,59 @@
+/* Ganze Kalenderzelle einfärben */
+.react-calendar__tile.highlight {
+  background: #5a605d !important;
+  color: white !important;
+  border-radius: 0 !important;
+}
+
+.btn-add {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .1rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1d777371, #3a7ced);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: .2px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, .35);
+  transition: transform .12s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+.btn-add:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(99, 102, 241, .45);
+  filter: brightness(1.03);
+}
+
+.btn-add:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(99, 102, 241, .35);
+}
+
+.btn-add:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, .6);
+  outline-offset: 2px;
+}
+
+.status-select{
+  width: 150px;
+  height: 25px;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .4rem 4rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1d777371, #3a7ced);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: .2px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, .35);
+  transition: transform .12s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+

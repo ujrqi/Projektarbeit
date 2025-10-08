@@ -1,0 +1,19 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Env / Secrets
+.env
+.env.*.local
+
+# Node/React
+node_modules/
+dist/
+build/
+.cache/
+coverage/
+
+# Tooling
+.vscode/
+.idea/
