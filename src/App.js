@@ -3,8 +3,8 @@ import './App.css';
 import MyCalendar from './MyCalendar';
 import Header from './header';
 import { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import ConfigPage from './ConfigPage';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+//import ConfigPage from './ConfigPage';
 
 // Widget für die aktuelle Konfiguration
 function CurrentConfig({ isLoggedIn }) {
@@ -29,8 +29,8 @@ function CurrentConfig({ isLoggedIn }) {
   };
 
   useEffect(() => { load(); }, [isLoggedIn]);
-
-  return (
+  // mögliche Anzeige für aktuelle Konfiguration
+  /*return (
     <div className="config-widget">
       <div className="config-widget-header">
         <strong>Aktuelle Konfiguration</strong>
@@ -63,6 +63,7 @@ function CurrentConfig({ isLoggedIn }) {
       )}
     </div>
   );
+  */
 }
 
 function Home({ user, loadingUser, login, logout }) {
@@ -75,12 +76,12 @@ function Home({ user, loadingUser, login, logout }) {
 
       {/* Button zur Unterseite */}
       <div>
-        <Link to="/config">
-          <button className="btn-config">Konfiguration</button>
-        </Link>
+        <a className="btn-config" href="/konfiguration.html">
+          Konfiguration
+        </a>
       </div>
 
-      {/* 👉 NEU: Anzeige der aktuellen Konfiguration direkt darunter */}
+      {/* NEU: Anzeige der aktuellen Konfiguration direkt darunter */}
       <CurrentConfig isLoggedIn={!!user} />
 
       {/* Login/Logout-Bereich */}
@@ -101,6 +102,7 @@ function Home({ user, loadingUser, login, logout }) {
     </div>
   );
 }
+
 
 function App() {
   const [user, setUser] = useState(null);
@@ -157,7 +159,7 @@ function App() {
           path="/"
           element={<Home user={user} loadingUser={loadingUser} login={login} logout={logout} />}
         />
-        <Route path="/config" element={<ConfigPage />} />
+       <Route path="/config" element={<Navigate to="/konfiguration.html" replace />} />
       </Routes>
     </Router>
   );
