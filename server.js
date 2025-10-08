@@ -2,6 +2,17 @@
 // OIDC Login-Flow mit PKCE, Discovery, ID-Token-Validierung & Session
 
 require('dotenv').config();
+
+const express = require('express');
+const cors = require('cors');
+const session = require('express-session');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const jwksClient = require('jwks-rsa');
+const fetch = require('node-fetch'); // v2 (CommonJS)
+
+const app = express();
+
 const {
   CLIENT_ID,
   CLIENT_SECRET,
@@ -9,6 +20,8 @@ const {
   ISSUER_BASE_URL = 'https://oidc.scc.kit.edu/auth/realms/kit',
   SESSION_SECRET,
   SCOPES = 'openid profile email',
+  NODE_ENV = 'development',
+  PORT = 3001,
   FRONTEND_ORIGIN = 'http://localhost:3000'
 } = process.env;
 
@@ -16,13 +29,14 @@ if (!CLIENT_ID || !ISSUER_BASE_URL || !SESSION_SECRET) {
   console.warn('[WARN] Bitte CLIENT_ID, ISSUER_BASE_URL, SESSION_SECRET in .env setzen.');
 }
 
-// Helpers
+// --- Helpers ---
 const isProd = NODE_ENV === 'production';
 if (isProd) {
+  // nur in Produktion hinter Proxy/Ingress (für secure-Cookies)
   app.set('trust proxy', 1);
 }
 
-// Base64URL-Encode Helper
+// Base64URL-Encode Helper (kompatibel)
 function toBase64Url(buf) {
   return Buffer.from(buf)
     .toString('base64')
@@ -97,13 +111,11 @@ function etagFor(obj) {
 
 // --- Middleware ---
 app.use(cors({
-  origin: FRONTEND_ORIGIN, 
+  origin: FRONTEND_ORIGIN, // wichtig: exakt der Origin, kein "*"
   credentials: true
 }));
 
 app.use(express.json());
-
-
 
 app.use(session({
   secret: SESSION_SECRET,
@@ -112,10 +124,9 @@ app.use(session({
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: isProd
+    secure: isProd // in Prod nur über HTTPS
   }
 }));
-
 
 console.log('[BOOT]', {
   NODE_ENV,
@@ -204,11 +215,10 @@ app.get('/callback', async (req, res) => {
 
     const codeVerifier = req.session.code_verifier;
     const nonce = req.session.oidc_nonce;
-    // löschen
+    // aufräumen
     delete req.session.oidc_state;
     delete req.session.code_verifier;
     delete req.session.oidc_nonce;
-
 
     const { token_endpoint, issuer, jwks_uri } = await getOidcMeta();
 
@@ -274,7 +284,7 @@ app.get('/callback', async (req, res) => {
         const { id_token, ...restTokens } = tokens;
         req.session.user = {
           claims: payload,
-          tokens: restTokens,
+          tokens: restTokens, // access_token, refresh_token (falls ausgegeben), expires_in usw.
           id_token
         };
 
@@ -329,9 +339,7 @@ app.post('/logout', async (req, res) => {
   }
 });
 
-// =======================
 // People-API (für Config)
-// =======================
 
 // Aktuelle Konfiguration lesen (3 Slots)
 app.get('/people', (req, res) => {
@@ -372,9 +380,7 @@ app.delete('/people/:slot', (req, res) => {
   res.json({ ok: true, people: store.people });
 });
 
-// =======================
 // Event-API
-// =======================
 
 
 // Alle Events als Objekt zurückgeben
@@ -477,6 +483,91 @@ app.get('/device/snapshot', requireDeviceAuth, (req, res) => {
 });
 
 
+
+
+
+
+// //  Cloud “Device Shadow” API  
+// // Keine Interference mit SCC Login (ensureStoreFor),
+// // Bearer (requireDeviceAuth).
+
+// const desiredById = new Map();   // deviceId -> { version, state:{ room, people[] } }
+// const reportedById = new Map();  // deviceId -> { ts, version, state:{...}, meta:{} }
+
+// function nextVersion(deviceId) {
+//   const cur = desiredById.get(deviceId);
+//   return (cur?.version || 0) + 1;
+// }
+
+// // WEB -> Set desired config for a device
+// app.post('/cloud/:deviceId/desired', (req, res) => {
+//   const store = ensureStoreFor(req, res); // requires login OIDC (session)
+//   if (!store) return;
+
+//   const { deviceId } = req.params;
+//   const incoming = req.body || {};
+
+//   const people = Array.isArray(incoming.people)
+//     ? incoming.people.slice(0, 3).map(p => ({
+//         name:   (p?.name   || '').toString(),
+//         role:   (p?.role   || '').toString(),
+//         uid:    (p?.uid    || '').toString(),
+//         status: (p?.status || '').toString()
+//       }))
+//     : [];
+
+//   const desired = {
+//     version: nextVersion(deviceId),
+//     state: {
+//       room: (incoming.room || '').toString(),
+//       people
+//     }
+//   };
+
+//   desiredById.set(deviceId, desired);
+//   res.json({ ok: true, version: desired.version });
+// });
+
+// // WEB -> reads actual status (last one reported, otherwise desired one)
+// app.get('/cloud/:deviceId/state', (req, res) => {
+//   const store = ensureStoreFor(req, res); // login OIDC
+//   if (!store) return;
+
+//   const { deviceId } = req.params;
+//   const rep = reportedById.get(deviceId);
+//   if (rep) return res.json(rep);
+
+//   const des = desiredById.get(deviceId) || { version: 0, state: { room:'', people:[] } };
+//   return res.json({ ts: Date.now(), version: des.version, state: des.state, meta: { source: 'desired' } });
+// });
+
+// // DEVICE -> “pull” of desired if there is a new version
+// app.get('/cloud/:deviceId/desired', requireDeviceAuth, (req, res) => {
+//   const { deviceId } = req.params;
+//   const since = parseInt(req.query.since || '0', 10);
+//   const des = desiredById.get(deviceId);
+//   if (!des || des.version <= since) return res.status(204).end();
+//   res.json(des); // { version, state:{ room, people } }
+// });
+
+// // DEVICE -> reports actual status
+// app.post('/cloud/:deviceId/report', requireDeviceAuth, (req, res) => {
+//   const { deviceId } = req.params;
+//   const body = req.body || {};
+//   const payload = {
+//     ts: Date.now(),
+//     version: Number.isInteger(body.version) ? body.version : 0,
+//     state: body.state || {},
+//     meta: body.meta || {}
+//   };
+//   reportedById.set(deviceId, payload);
+//   res.json({ ok: true });
+// });
+
+
+
+
+
 // Globaler Error-Handler (falls etwas durchrutscht)
 app.use((err, req, res, next) => {
   console.error('Unerwarteter Fehler:', err);
@@ -487,6 +578,10 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Auth-Server läuft auf http://localhost:${PORT}`);
 });
+
+
+
+
 
 
 
